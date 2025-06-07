@@ -83,7 +83,7 @@ export interface AddScheduleModalProps {
     time: string;
     showTimePickerHandler: () => void;
     onClose: () => void;
-    onSubmit: () => void;
+    onSubmit: (encryptedData?: any) => void;
     isLoading: boolean;
     editing: boolean;
 }

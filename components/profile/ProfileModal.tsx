@@ -27,6 +27,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import sanitizeHtml from 'sanitize-html';
 
 const { width, height } = Dimensions.get("window");
 
@@ -90,6 +91,13 @@ export default function ProfileModal() {
     } finally {
       setFetchingData(false);
     }
+  };
+
+  const sanitizeInput = (text: string) => {
+    return sanitizeHtml(text, {
+      allowedTags: [], // No HTML tags allowed
+      allowedAttributes: {}, // No attributes allowed
+    });
   };
 
   const pickImage = async (
@@ -370,7 +378,7 @@ export default function ProfileModal() {
             <>
               <TextInput
                 value={bio}
-                onChangeText={setBio}
+                onChangeText={(text) => setBio(sanitizeInput(text))}  // Apply sanitization
                 multiline
                 style={styles.bioInput}
                 placeholder="Tell us about yourself..."
@@ -487,7 +495,7 @@ export default function ProfileModal() {
                 <Text style={styles.settingsSectionTitle}>Username</Text>
                 <TextInput
                   value={username}
-                  onChangeText={setUsername}
+                  onChangeText={(text) => setUsername(sanitizeInput(text))}  // Apply sanitization
                   style={styles.settingsInput}
                   placeholder="Enter username"
                   placeholderTextColor="#999"
@@ -511,7 +519,7 @@ export default function ProfileModal() {
                 <Text style={styles.settingsSectionTitle}>Email Address</Text>
                 <TextInput
                   value={newEmail}
-                  onChangeText={setNewEmail}
+                  onChangeText={(text) => setNewEmail(sanitizeInput(text))}  // Apply sanitization
                   style={styles.settingsInput}
                   placeholder="Enter new email"
                   placeholderTextColor="#999"
@@ -520,7 +528,7 @@ export default function ProfileModal() {
                 />
                 <TextInput
                   value={currentPassword}
-                  onChangeText={setCurrentPassword}
+                  onChangeText={(text) => setCurrentPassword(sanitizeInput(text))}  // Apply sanitization
                   style={styles.settingsInput}
                   placeholder="Current password"
                   placeholderTextColor="#999"
@@ -544,7 +552,7 @@ export default function ProfileModal() {
                 <Text style={styles.settingsSectionTitle}>Change Password</Text>
                 <TextInput
                   value={currentPassword}
-                  onChangeText={setCurrentPassword}
+                  onChangeText={(text) => setCurrentPassword(sanitizeInput(text))}  // Apply sanitization
                   style={styles.settingsInput}
                   placeholder="Current password"
                   placeholderTextColor="#999"
@@ -552,7 +560,7 @@ export default function ProfileModal() {
                 />
                 <TextInput
                   value={newPassword}
-                  onChangeText={setNewPassword}
+                  onChangeText={(text) => setNewPassword(sanitizeInput(text))}  // Apply sanitization
                   style={styles.settingsInput}
                   placeholder="New password"
                   placeholderTextColor="#999"
@@ -560,7 +568,7 @@ export default function ProfileModal() {
                 />
                 <TextInput
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={(text) => setConfirmPassword(sanitizeInput(text))}  // Apply sanitization
                   style={styles.settingsInput}
                   placeholder="Confirm new password"
                   placeholderTextColor="#999"

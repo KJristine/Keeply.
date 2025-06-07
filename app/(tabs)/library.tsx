@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import sanitizeHtml from 'sanitize-html';
 
 // --- FIREBASE LOGIC START ---
 import { db } from "@/config/firebase";
@@ -108,6 +109,15 @@ const Library = () => {
     });
     return unsubscribe;
   }, []);
+
+  // --- Sanitize Search Input ---
+  const handleSearchChange = (text: string) => {
+    const sanitizedSearch = sanitizeHtml(text, {
+      allowedTags: [], // No HTML tags allowed
+      allowedAttributes: {}, // No attributes allowed
+    });
+    setSearch(sanitizedSearch);
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -217,7 +227,7 @@ const Library = () => {
             placeholder="Search Books"
             placeholderTextColor="#666"
             value={search}
-            onChangeText={setSearch}
+            onChangeText={handleSearchChange} // Use sanitized search
           />
         </View>
 

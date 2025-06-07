@@ -11,8 +11,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import sanitizeHtml from 'sanitize-html';
 
 const { width, height } = Dimensions.get("window");
+
+// Function to sanitize input text
+const sanitizeInput = (text: string) => {
+  return sanitizeHtml(text, {
+    allowedTags: [], // No HTML tags allowed
+    allowedAttributes: {}, // No attributes allowed
+  });
+};
+
 
 interface AddDebtModalProps {
   visible: boolean;
@@ -108,48 +118,36 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
             </View>
           </View>
 
-          {/* Person Name */}
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionTitle}>Person's Name</Text>
-            <TextInput
-              style={styles.input}
-              value={personName}
-              onChangeText={setPersonName}
-              placeholder="Enter person's name"
-              placeholderTextColor="#999"
-            />
-          </View>
+          {/* For personName input */}
+          <TextInput
+            style={styles.input}
+            value={personName}
+            onChangeText={(text) => setPersonName(sanitizeInput(text))}  // Apply sanitization
+            placeholder="Enter person's name"
+            placeholderTextColor="#999"
+          />
 
-          {/* Amount */}
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionTitle}>Amount</Text>
-            <View style={styles.amountInputContainer}>
-              <Text style={styles.currencySymbol}>₱</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={setAmount}
-                placeholder="0.00"
-                placeholderTextColor="#999"
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
+          {/* For amount input */}
+          <TextInput
+            style={styles.amountInput}
+            value={amount}
+            onChangeText={(text) => setAmount(sanitizeInput(text))}  // Apply sanitization
+            placeholder="0.00"
+            placeholderTextColor="#999"
+            keyboardType="decimal-pad"
+          />
 
-          {/* Description */}
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <TextInput
-              style={[styles.input, styles.descriptionInput]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="What is this debt for?"
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
+          {/* For description input */}
+          <TextInput
+            style={[styles.input, styles.descriptionInput]}
+            value={description}
+            onChangeText={(text) => setDescription(sanitizeInput(text))}  // Apply sanitization
+            placeholder="What is this debt for?"
+            placeholderTextColor="#999"
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
 
           {/* Preview */}
           <View style={styles.previewSection}>
@@ -180,15 +178,8 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
                   </Text>
                 </View>
               </View>
-              <Text
-                style={[
-                  styles.previewAmount,
-                  {
-                    color: debtType === "owed_to_me" ? "#4CAF50" : "#F44336",
-                  },
-                ]}
-              >
-                {debtType === "owed_to_me" ? "+" : "-"}₱{amount || "0.00"}
+              <Text style={styles.previewAmount}>
+                {debtType === "owed_to_me" ? "+" : "-"}₱{amount || "0.00"}  {/* Wrapped in <Text> */}
               </Text>
             </View>
           </View>
@@ -204,7 +195,7 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
                   debtType === "owed_to_me" ? "#4CAF50" : "#F44336",
               },
               (!personName || !amount || !description) &&
-                styles.addButtonDisabled,
+              styles.addButtonDisabled,
             ]}
             onPress={onAddDebt}
             disabled={!personName || !amount || !description}

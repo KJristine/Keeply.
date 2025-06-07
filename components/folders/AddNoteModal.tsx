@@ -1,5 +1,3 @@
-//Working
-
 import { AddNoteModalProps } from "@/types/props";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -14,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import sanitizeHtml from 'sanitize-html'; // Import sanitize-html
 
 const AddNoteModal = ({
   visible,
@@ -58,6 +57,18 @@ const AddNoteModal = ({
       setError("Please fill out all fields.");
       return;
     }
+
+    // Sanitize the title and description to remove unwanted HTML
+    const sanitizedTitle = sanitizeHtml(title.trim(), {
+      allowedTags: [],  // No tags allowed in title
+      allowedAttributes: {}  // No attributes allowed in title
+    });
+
+    const sanitizedDescription = sanitizeHtml(description.trim(), {
+      allowedTags: ['b', 'i', 'em', 'strong', 'p'],  // Allow some basic tags in description (optional)
+      allowedAttributes: {}  // No attributes allowed in description
+    });
+
     let dateString = note?.date;
     if (!dateString) {
       // New note, generate date
@@ -75,9 +86,10 @@ const AddNoteModal = ({
       });
       dateString = `${datePart} - ${timePart}`;
     }
+
     onAddNote({
-      title: title.trim(),
-      description: description.trim(),
+      title: sanitizedTitle,
+      description: sanitizedDescription,
       date: dateString,
     });
     setTitle("");
@@ -124,7 +136,7 @@ const AddNoteModal = ({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.centeredView}
       >
-        <Animated.View style={[styles.modalView, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.modalView, { opacity: fadeAnim }]} >
           <Text style={styles.modalTitle}>
             {note ? "Edit Note" : "Add Note"}
           </Text>

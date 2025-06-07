@@ -23,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import sanitizeHtml from 'sanitize-html';
 
 const { width, height } = Dimensions.get("window");
 
@@ -30,26 +31,30 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false); // State for password visibility
   const router = useRouter();
 
-  const fetchEmailFromUsername = async (
-    username: string
-  ): Promise<string | null> => {
-    try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("username", "==", username));
-      const querySnapshot = await getDocs(q);
+const fetchEmailFromUsername = async (
+  username: string
+): Promise<string | null> => {
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", username));
 
-      if (querySnapshot.empty) {
-        return null;
-      }
+    // Ensure query executes correctly by awaiting the promise
+    const querySnapshot = await getDocs(q);
 
-      return querySnapshot.docs[0].data().email;
-    } catch (error) {
-      console.error("Error fetching email from username:", error);
+    if (querySnapshot.empty) {
       return null;
     }
-  };
+
+    // Retrieve the first document's email field
+    return querySnapshot.docs[0].data().email || null;
+  } catch (error) {
+    console.error("Error fetching email from username:", error);
+    return null;
+  }
+};
 
   const fetchUsernameFromUserId = async (
     userId: string
@@ -69,47 +74,83 @@ const Login = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("Login", "Please fill in all fields.");
-      return;
-    }
+const handleSubmit = async () => {
+  if (!email.trim() || !password.trim()) {
+    Alert.alert("Login", "Please fill in all fields.");
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    try {
-      let loginEmail = email;
+  try {
+    let loginEmail = email;
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        const usernameToEmail = await fetchEmailFromUsername(email);
-        if (!usernameToEmail) {
-          throw new Error("No account found for the provided username.");
-        }
-        loginEmail = usernameToEmail;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      // If email is not provided, attempt to resolve it with the username
+      const usernameToEmail = await fetchEmailFromUsername(email);
+      if (!usernameToEmail) {
+        throw new Error("No account found for the provided username.");
       }
-
-      const auth = getAuth();
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        loginEmail,
-        password
-      );
-
-      // Fetch username from Firestore using the user's UID
-      const username = await fetchUsernameFromUserId(userCredential.user.uid);
-
-      Alert.alert("Success", `Welcome back, ${username || "User"}!`);
-      router.replace("/(tabs)/home");
-    } catch (error: any) {
-      Alert.alert(
-        "Login Failed",
-        error.message || "Invalid credentials. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
+      loginEmail = usernameToEmail;
     }
-  };
+
+    // Sanitize the login email (which can be a username or email address)
+    loginEmail = sanitizeHtml(loginEmail, {
+      allowedTags: [],
+      allowedAttributes: {}
+    });
+
+    const auth = getAuth();
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      loginEmail,
+      password
+    );
+
+    // Fetch username from Firestore using the user's UID
+    const username = await fetchUsernameFromUserId(userCredential.user.uid);
+
+    Alert.alert("Success", `Welcome back, ${username || "User"}!`);
+    router.replace("/(tabs)/home"); // Redirect to the home page
+  } catch (error: any) {
+    let errorMessage = "Login Failed";
+    let customErrorMessage = "An error occurred, please try again."; // Default error message
+
+    // Handle specific Firebase authentication errors
+    switch (error.code) {
+      case "auth/wrong-password":
+        customErrorMessage = "Incorrect password. Please try again.";
+        break;
+      case "auth/user-not-found":
+        customErrorMessage = "No account found for this email/username.";
+        break;
+      case "auth/invalid-email":
+        customErrorMessage = "Please enter a valid email address.";
+        break;
+      case "auth/invalid-credential":
+        customErrorMessage = "Invalid credentials. Please check your email and password.";
+        break;
+      case "auth/network-request-failed":
+        customErrorMessage = "Network error occurred. Please check your internet connection.";
+        break;
+      case "auth/too-many-requests":
+        customErrorMessage = "Too many attempts. Please try again later.";
+        break;
+      default:
+        customErrorMessage = "An unexpected error occurred. Please try again.";
+        break;
+    }
+
+    // Remove Firebase-specific error part
+    const formattedErrorMessage = error.message.replace(/Firebase: Error \([^)]+\)/, "");
+
+    // Show the Alert with the custom error message
+    Alert.alert(errorMessage, customErrorMessage || formattedErrorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <KeyboardAwareScrollView
@@ -138,15 +179,25 @@ const Login = () => {
         editable={!isLoading}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#aaa"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        editable={!isLoading}
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#aaa"
+          secureTextEntry={!isPasswordVisible}  // Toggles visibility based on state
+          value={password}
+          onChangeText={setPassword}
+          editable={!isLoading}
+        />
+        <TouchableOpacity
+          onPress={() => setIsPasswordVisible(!isPasswordVisible)}  // Toggle password visibility
+          style={styles.eyeIcon}
+        >
+          <Text style={styles.eyeText}>
+            {isPasswordVisible ? "Hide" : "Show"} {/* Toggle text */}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity
         style={styles.forgotPasswordContainer}
@@ -273,5 +324,20 @@ const styles = StyleSheet.create({
     color: "#F76A86",
     fontSize: width * 0.037,
     fontWeight: "bold",
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    position: "relative",
+  },
+  eyeIcon: {
+    position: "absolute",
+    right: width * 0.04,
+    top: height * 0.018,
+  },
+  eyeText: {
+    color: "#aaa",
+    fontSize: width * 0.045,
   },
 });

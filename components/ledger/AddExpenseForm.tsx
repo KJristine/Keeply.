@@ -12,8 +12,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import sanitizeHtml from 'sanitize-html';
 
 const { width, height } = Dimensions.get("window");
+
+// Function to sanitize input text
+const sanitizeInput = (text: string) => {
+  return sanitizeHtml(text, {
+    allowedTags: [], // No HTML tags allowed
+    allowedAttributes: {}, // No attributes allowed
+  });
+};
 
 interface Category {
   id: string;
@@ -75,21 +84,14 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
     <View style={styles.container}>
       {/* Header Gradient */}
       <View
-        style={[
-          styles.headerGradient,
-          {
-            backgroundColor: expenseType === "expense" ? "#FF6B6B" : "#4CAF50",
-          },
-        ]}
+        style={[styles.headerGradient, { backgroundColor: expenseType === "expense" ? "#FF6B6B" : "#4CAF50" }]}
       >
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>
             {isEditing ? "Edit Transaction" : "New Transaction"}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {expenseType === "expense"
-              ? "Track your spending"
-              : "Record your income"}
+            {expenseType === "expense" ? "Track your spending" : "Record your income"}
           </Text>
         </View>
       </View>
@@ -104,69 +106,29 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
           <Text style={styles.cardTitle}>Transaction Type</Text>
           <View style={styles.typeContainer}>
             <TouchableOpacity
-              style={[
-                styles.typePill,
-                expenseType === "expense" && styles.expensePill,
-              ]}
+              style={[styles.typePill, expenseType === "expense" && styles.expensePill]}
               onPress={() => setExpenseType("expense")}
             >
               <View
-                style={[
-                  styles.typeIcon,
-                  {
-                    backgroundColor:
-                      expenseType === "expense"
-                        ? "rgba(255,255,255,0.2)"
-                        : "#FFF5F5",
-                  },
-                ]}
+                style={[styles.typeIcon, { backgroundColor: expenseType === "expense" ? "rgba(255,255,255,0.2)" : "#FFF5F5" }]}
               >
-                <Ionicons
-                  name="trending-down"
-                  size={20}
-                  color={expenseType === "expense" ? "#fff" : "#FF6B6B"}
-                />
+                <Ionicons name="trending-down" size={20} color={expenseType === "expense" ? "#fff" : "#FF6B6B"} />
               </View>
-              <Text
-                style={[
-                  styles.typePillText,
-                  expenseType === "expense" && styles.typePillTextActive,
-                ]}
-              >
+              <Text style={[styles.typePillText, expenseType === "expense" && styles.typePillTextActive]}>
                 Expense
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.typePill,
-                expenseType === "income" && styles.incomePill,
-              ]}
+              style={[styles.typePill, expenseType === "income" && styles.incomePill]}
               onPress={() => setExpenseType("income")}
             >
               <View
-                style={[
-                  styles.typeIcon,
-                  {
-                    backgroundColor:
-                      expenseType === "income"
-                        ? "rgba(255,255,255,0.2)"
-                        : "#F1F8E9",
-                  },
-                ]}
+                style={[styles.typeIcon, { backgroundColor: expenseType === "income" ? "rgba(255,255,255,0.2)" : "#F1F8E9" }]}
               >
-                <Ionicons
-                  name="trending-up"
-                  size={20}
-                  color={expenseType === "income" ? "#fff" : "#4CAF50"}
-                />
+                <Ionicons name="trending-up" size={20} color={expenseType === "income" ? "#fff" : "#4CAF50"} />
               </View>
-              <Text
-                style={[
-                  styles.typePillText,
-                  expenseType === "income" && styles.typePillTextActive,
-                ]}
-              >
+              <Text style={[styles.typePillText, expenseType === "income" && styles.typePillTextActive]}>
                 Income
               </Text>
             </TouchableOpacity>
@@ -182,7 +144,7 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
               <TextInput
                 style={styles.amountInput}
                 value={amount}
-                onChangeText={setAmount}
+                onChangeText={(text) => setAmount(sanitizeInput(text))}  // Apply sanitization
                 placeholder="0.00"
                 keyboardType="decimal-pad"
                 placeholderTextColor="#E0E0E0"
@@ -196,10 +158,7 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
         <View style={styles.categoryCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.cardTitle}>Category</Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={onOpenCategoryModal}
-            >
+            <TouchableOpacity style={styles.addBtn} onPress={onOpenCategoryModal}>
               <Ionicons name="add" size={16} color="#F76A86" />
               <Text style={styles.addBtnText}>Add</Text>
             </TouchableOpacity>
@@ -210,31 +169,14 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
               {categories.map((category) => (
                 <TouchableOpacity
                   key={category.id}
-                  style={[
-                    styles.categoryChip,
-                    selectedCategory?.id === category.id &&
-                      styles.categoryChipSelected,
-                  ]}
+                  style={[styles.categoryChip, selectedCategory?.id === category.id && styles.categoryChipSelected]}
                   onPress={() => setSelectedCategory(category)}
                 >
-                  <View
-                    style={[
-                      styles.categoryDot,
-                      { backgroundColor: category.color },
-                    ]}
-                  >
-                    <Ionicons
-                      name={category.icon as any}
-                      size={16}
-                      color="white"
-                    />
+                  <View style={[styles.categoryDot, { backgroundColor: category.color }]}>
+                    <Ionicons name={category.icon as any} size={16} color="white" />
                   </View>
                   <Text
-                    style={[
-                      styles.categoryLabel,
-                      selectedCategory?.id === category.id &&
-                        styles.categoryLabelSelected,
-                    ]}
+                    style={[styles.categoryLabel, selectedCategory?.id === category.id && styles.categoryLabelSelected]}
                   >
                     {category.name}
                   </Text>
@@ -250,7 +192,7 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
           <TextInput
             style={styles.textInput}
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(text) => setDescription(sanitizeInput(text))}  // Apply sanitization
             placeholder="What's this transaction for?"
             placeholderTextColor="#B0BEC5"
             multiline
@@ -300,14 +242,7 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
       {/* Submit Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[
-            styles.submitBtn,
-            {
-              backgroundColor:
-                expenseType === "expense" ? "#F76A86" : "#4CAF50",
-              opacity: loading ? 0.8 : 1,
-            },
-          ]}
+          style={[styles.submitBtn, { backgroundColor: expenseType === "expense" ? "#F76A86" : "#4CAF50", opacity: loading ? 0.8 : 1 }]}
           onPress={onAddExpense}
           disabled={loading}
         >
@@ -318,14 +253,9 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
             </View>
           ) : (
             <View style={styles.submitContent}>
-              <Ionicons
-                name={isEditing ? "checkmark-circle" : "add-circle"}
-                size={20}
-                color="white"
-              />
+              <Ionicons name={isEditing ? "checkmark-circle" : "add-circle"} size={20} color="white" />
               <Text style={styles.submitText}>
-                {buttonText ||
-                  (isEditing ? "Update Transaction" : "Add Transaction")}
+                {buttonText || (isEditing ? "Update Transaction" : "Add Transaction")}
               </Text>
             </View>
           )}

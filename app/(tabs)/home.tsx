@@ -1,4 +1,8 @@
+import AddTaskModal from "@/components/home/AddTaskModal";
+import PomodoroTimerModal from "@/components/home/PomodoroTimerModal";
+import ProfileModal from "@/components/profile/ProfileModal";
 import { db } from "@/config/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -28,10 +32,7 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AddTaskModal from "@/components/home/AddTaskModal";
-import PomodoroTimerModal from "@/components/home/PomodoroTimerModal";
-import ProfileModal from "@/components/profile/ProfileModal";
-import { useAuth } from "@/contexts/AuthContext";
+import sanitizeHtml from 'sanitize-html';
 
 const { width, height } = Dimensions.get("window");
 
@@ -338,7 +339,14 @@ const Home = () => {
             placeholder="Search Task"
             placeholderTextColor="#666"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(text) => {
+              // Sanitize the input text to remove any unwanted HTML or scripts
+              const sanitizedSearchQuery = sanitizeHtml(text, {
+                allowedTags: [],  // No HTML tags allowed
+                allowedAttributes: {},  // No attributes allowed
+              });
+              setSearchQuery(sanitizedSearchQuery);  // Update the state with sanitized query
+            }}  // Use sanitized function directly
           />
         </View>
         {/* Tab Navigation */}
@@ -542,11 +550,11 @@ const Home = () => {
         task={
           editingTask
             ? {
-                id: editingTask.id,
-                title: editingTask.title,
-                description: editingTask.description ?? "",
-                deadline: editingTask.deadline ?? null,
-              }
+              id: editingTask.id,
+              title: editingTask.title,
+              description: editingTask.description ?? "",
+              deadline: editingTask.deadline ?? null,
+            }
             : undefined
         }
       />

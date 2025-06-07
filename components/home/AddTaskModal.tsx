@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import sanitizeHtml from 'sanitize-html';
 
 const AddTaskModal = ({
   visible,
@@ -70,6 +71,25 @@ const AddTaskModal = ({
       }).start();
     }
   }, [visible]);
+
+    // Sanitize Title and Description Input
+  const handleTitleChange = (text: string) => {
+    // Sanitize the title text
+    const sanitizedText = sanitizeHtml(text, {
+      allowedTags: [], // No HTML tags allowed
+      allowedAttributes: {}, // No attributes allowed
+    });
+    setTitle(sanitizedText); // Update state with sanitized title
+  };
+
+  const handleDescriptionChange = (text: string) => {
+    // Sanitize the description text
+    const sanitizedText = sanitizeHtml(text, {
+      allowedTags: [], // No HTML tags allowed
+      allowedAttributes: {}, // No attributes allowed
+    });
+    setDescription(sanitizedText); // Update state with sanitized description
+  };
 
   const handleSubmit = () => {
     if (!title.trim()) {
@@ -205,10 +225,7 @@ const AddTaskModal = ({
             placeholder="Task Title"
             placeholderTextColor="#888"
             value={title}
-            onChangeText={(text) => {
-              setTitle(text);
-              if (error) setError("");
-            }}
+            onChangeText={handleTitleChange}  // Sanitize title
             maxLength={50}
           />
           <TextInput
@@ -216,7 +233,7 @@ const AddTaskModal = ({
             placeholder="Description (optional)"
             placeholderTextColor="#888"
             value={description}
-            onChangeText={setDescription}
+            onChangeText={handleDescriptionChange}  // Sanitize description
             multiline
             numberOfLines={4}
             maxLength={200}

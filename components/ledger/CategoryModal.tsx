@@ -11,8 +11,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import sanitizeHtml from 'sanitize-html';
 
 const { width, height } = Dimensions.get("window");
+
+// Function to sanitize input text
+const sanitizeInput = (text: string) => {
+  return sanitizeHtml(text, {
+    allowedTags: [], // No HTML tags allowed
+    allowedAttributes: {}, // No attributes allowed
+  });
+};
 
 interface CategoryModalProps {
   visible: boolean;
@@ -71,10 +80,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             <Text style={styles.sectionTitle}>Preview</Text>
             <View style={styles.categoryPreview}>
               <View
-                style={[
-                  styles.categoryIcon,
-                  { backgroundColor: newCategoryColor },
-                ]}
+                style={[styles.categoryIcon, { backgroundColor: newCategoryColor }]}
               >
                 <Ionicons
                   name={newCategoryIcon as any}
@@ -99,7 +105,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             <TextInput
               style={styles.input}
               value={newCategoryName}
-              onChangeText={setNewCategoryName}
+              onChangeText={(text) => setNewCategoryName(sanitizeInput(text))}  // Apply sanitization
               placeholder="e.g., Groceries, Entertainment"
               placeholderTextColor="#999"
             />
@@ -113,7 +119,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               <TextInput
                 style={styles.budgetInput}
                 value={newCategoryBudget}
-                onChangeText={setNewCategoryBudget}
+                onChangeText={(text) => setNewCategoryBudget(sanitizeInput(text))}  // Apply sanitization
                 placeholder="0.00"
                 placeholderTextColor="#999"
                 keyboardType="decimal-pad"
@@ -168,8 +174,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             style={[
               styles.createButton,
               { backgroundColor: newCategoryColor },
-              (!newCategoryName || !newCategoryBudget) &&
-                styles.createButtonDisabled,
+              (!newCategoryName || !newCategoryBudget) && styles.createButtonDisabled,
             ]}
             onPress={onAddCategory}
             disabled={!newCategoryName || !newCategoryBudget}

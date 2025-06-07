@@ -22,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
+import sanitizeHtml from 'sanitize-html';
 
 const { width } = Dimensions.get("window");
 
@@ -74,6 +75,16 @@ export const Settings: React.FC<SettingsProps> = ({
         swipeable.close();
       }
     });
+  };
+
+  // --- Sanitize the input before updating state ---
+  const handleMonthlyBudgetChange = (text: string) => {
+    const sanitizedText = sanitizeHtml(text, {
+      allowedTags: [], // No HTML tags allowed
+      allowedAttributes: {}, // No attributes allowed
+    });
+
+    setMonthlyBudgetInput(sanitizedText); // Update the state with sanitized input
   };
 
   // Modified Delete Category Function
@@ -454,7 +465,7 @@ export const Settings: React.FC<SettingsProps> = ({
           <TextInput
             style={styles.settingInput}
             value={monthlyBudgetInput}
-            onChangeText={setMonthlyBudgetInput}
+            onChangeText={handleMonthlyBudgetChange} // <-- Use the sanitized input handler
             placeholder="Enter your monthly budget (e.g., 50000)"
             keyboardType="decimal-pad"
           />

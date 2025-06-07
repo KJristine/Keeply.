@@ -2,6 +2,7 @@ import ProfileModal from "@/components/profile/ProfileModal";
 import { db } from "@/config/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Schedule } from "@/types/props";
+import { decryptData } from "../../components/schedules/AddScheduleModal";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { StatusBar } from "expo-status-bar";
@@ -133,8 +134,23 @@ export default function ScheduleScreen() {
         [key: string]: { marked: boolean; dotColor: string; selected: boolean };
       } = {};
 
-      querySnapshot.forEach((doc) => {
-        const data = { id: doc.id, ...doc.data() } as Schedule;
+      // Process each document
+      for (const document of querySnapshot.docs) {
+        const docData = document.data();
+        const data = { id: document.id, ...docData } as Schedule;
+        
+        // Check if data is encrypted and decrypt if needed
+        if (docData.encrypted) {
+          try {
+            // Decrypt subject and time
+            data.subject = await decryptData(data.subject);
+            data.time = await decryptData(data.time);
+          } catch (decryptError) {
+            console.error("Error decrypting schedule data:", decryptError);
+            // Keep encrypted data as fallback
+          }
+        }
+        
         schedulesData.push(data);
 
         if (data.date) {
@@ -144,7 +160,7 @@ export default function ScheduleScreen() {
             selected: selectedDate === data.date,
           };
         }
-      });
+      }
 
       setSchedules(schedulesData);
       setMarkedDates(dates);
@@ -190,7 +206,7 @@ export default function ScheduleScreen() {
     setMarkedDates(updatedMarkedDates);
   };
 
-  const handleCreateSchedule = async () => {
+  const handleCreateSchedule = async (encryptedData?: any) => {
     if (!currentUser) {
       Alert.alert("Error", "You must be logged in to create schedules");
       return;
@@ -203,12 +219,14 @@ export default function ScheduleScreen() {
 
     setIsLoading(true);
     try {
+      // Use encrypted data if provided, otherwise use plain text
       const scheduleData = {
-        subject: subject.trim(),
-        time: time.trim(),
+        subject: encryptedData?.subject || subject.trim(),
+        time: encryptedData?.time || time.trim(),
         date: selectedDate,
         userId: currentUser.uid,
         ...(editingScheduleId ? {} : { createdAt: serverTimestamp() }),
+        encrypted: !!encryptedData // Flag to indicate if data is encrypted
       };
 
       if (editingScheduleId) {
@@ -265,6 +283,8 @@ export default function ScheduleScreen() {
 
   const handleEditSchedule = (schedule: Schedule) => {
     if (!schedule.id) return;
+    
+    // Make sure we're using decrypted values in the form
     setSubject(schedule.subject);
     setTime(schedule.time);
     setSelectedDate(schedule.date);

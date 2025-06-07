@@ -17,6 +17,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import sanitizeHtml from "sanitize-html"; // Import sanitize-html
+
+// Define a type for the book object
+interface Book {
+  title: string;
+  description: string;
+  coverUri?: string;
+  rating: number;
+}
 
 const AddBookModal: React.FC<AddBookModalProps> = ({
   visible,
@@ -133,6 +142,30 @@ const AddBookModal: React.FC<AddBookModalProps> = ({
     }
   };
 
+  // --- Sanitize Inputs ---
+  const sanitizeInput = (input: string) => {
+    return sanitizeHtml(input, {
+      allowedTags: [], // No HTML tags allowed
+      allowedAttributes: {}, // No attributes allowed
+    });
+  };
+
+  const handleTitleChange = (text: string) => {
+    const sanitizedTitle = sanitizeInput(text);
+    setNewBook((prevState: Book) => ({
+      ...prevState,
+      title: sanitizedTitle,
+    }));
+  };
+
+  const handleDescriptionChange = (text: string) => {
+    const sanitizedDescription = sanitizeInput(text);
+    setNewBook((prevState: Book) => ({
+      ...prevState,
+      description: sanitizedDescription,
+    }));
+  };
+
   if (!showModal) return null;
 
   return (
@@ -178,7 +211,7 @@ const AddBookModal: React.FC<AddBookModalProps> = ({
             placeholder="Title"
             placeholderTextColor="#888"
             value={newBook.title || ""}
-            onChangeText={(text) => setNewBook({ ...newBook, title: text })}
+            onChangeText={handleTitleChange} // Use sanitized title
           />
 
           {/* Description Input */}
@@ -187,9 +220,7 @@ const AddBookModal: React.FC<AddBookModalProps> = ({
             placeholder="Description (e.g. Chapter, Author, Notes...)"
             placeholderTextColor="#888"
             value={newBook.description || ""}
-            onChangeText={(text) =>
-              setNewBook({ ...newBook, description: text })
-            }
+            onChangeText={handleDescriptionChange} // Use sanitized description
             multiline
           />
 

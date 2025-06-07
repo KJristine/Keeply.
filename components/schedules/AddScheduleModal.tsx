@@ -1,5 +1,6 @@
 import { AddScheduleModalProps } from "@/types/props";
 import { Ionicons } from "@expo/vector-icons";
+import CryptoJS from 'crypto-js'; // You'll need: npm install crypto-js
 import React from "react";
 import {
   Animated,
@@ -11,7 +12,75 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// Using CryptoJS for encryption 
 import { Calendar } from "react-native-calendars";
+import sanitizeHtml from 'sanitize-html';
+import { auth } from '../../config/firebase'; // Updated to match your Firebase config location
+
+import { APP_SECRET_SALT } from '@env';
+
+// Encryption utilities
+const IV_LENGTH = 16;
+
+// Generate user-specific encryption key from their UID
+const getUserEncryptionKey = async (): Promise<string> => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User not authenticated');
+  
+  // Derive a unique key for this user
+  const key = CryptoJS.PBKDF2(user.uid, APP_SECRET_SALT, {
+    keySize: 256/32, // 32 bytes for AES-256
+    iterations: 10000 // Strong key derivation
+  }).toString();
+  
+  return key;
+};
+
+// Generate a random IV for each encryption
+const generateIV = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < IV_LENGTH; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+// Encrypt sensitive data using the user's unique key
+const encryptData = async (data: string): Promise<string> => {
+  try {
+    const userKey = await getUserEncryptionKey();
+    const iv = generateIV();
+    
+    // Use CryptoJS for encryption instead of react-native-aes-crypto
+    const encrypted = CryptoJS.AES.encrypt(data, userKey + iv).toString();
+
+    // Prepend IV to encrypted data (separated by :)
+    return `${iv}:${encrypted}`;
+  } catch (error) {
+    console.error('Encryption error:', error);
+    throw error;
+  }
+};
+
+// Decrypt sensitive data using the user's unique key
+const decryptData = async (encryptedData: string): Promise<string> => {
+  try {
+    const userKey = await getUserEncryptionKey();
+    const [iv, encrypted] = encryptedData.split(':');
+    if (!iv || !encrypted) {
+      throw new Error('Invalid encrypted data format');
+    }
+
+    // Use CryptoJS for decryption
+    const bytes = CryptoJS.AES.decrypt(encrypted, userKey + iv);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw error;
+  }
+};
 
 export default function AddScheduleModal({
   visible,
@@ -27,6 +96,39 @@ export default function AddScheduleModal({
   isLoading,
   editing,
 }: AddScheduleModalProps) {
+  
+  // Sanitize subject before setting it to state
+  const handleSubjectChange = (text: string) => {
+    const sanitizedText = sanitizeHtml(text, {
+      allowedTags: [],
+      allowedAttributes: {}
+    });
+    setSubject(sanitizedText);
+  };
+
+  // Enhanced submit handler with encryption
+  const handleEncryptedSubmit = async () => {
+    try {
+      // Encrypt the data
+      const encryptedSubject = await encryptData(subject.trim());
+      const encryptedTime = await encryptData(time.trim());
+      
+      // Create a temporary object with encrypted values
+      const encryptedData = {
+        subject: encryptedSubject,
+        time: encryptedTime
+      };
+      
+      // Pass the encrypted data to parent component
+      onSubmit(encryptedData);
+      
+    } catch (error) {
+      console.error('Failed to encrypt schedule data:', error);
+      // Handle encryption error
+      onSubmit(); // Fall back to original behavior
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -60,9 +162,10 @@ export default function AddScheduleModal({
               <TextInput
                 placeholder="Enter subject"
                 value={subject}
-                onChangeText={setSubject}
+                onChangeText={handleSubjectChange}
                 style={styles.input}
                 placeholderTextColor="#9CA3AF"
+                secureTextEntry={false} // Set to true if you want to hide input
               />
             </View>
 
@@ -130,7 +233,7 @@ export default function AddScheduleModal({
                 (!subject.trim() || !time.trim() || !selectedDate) &&
                   styles.confirmButtonDisabled,
               ]}
-              onPress={onSubmit}
+              onPress={handleEncryptedSubmit} // Use encrypted submit handler
               disabled={
                 !subject.trim() || !time.trim() || !selectedDate || isLoading
               }
@@ -149,6 +252,9 @@ export default function AddScheduleModal({
     </Modal>
   );
 }
+
+// Export encryption utilities for use in other components
+export { decryptData, encryptData };
 
 const styles = StyleSheet.create({
   modalBackdrop: {

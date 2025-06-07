@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import sanitizeHtml from 'sanitize-html';
 
 // --- FIREBASE LOGIC START ---
 import { getAuth } from "firebase/auth";
@@ -62,6 +63,15 @@ const Folders = () => {
     userId: string;
   }>(null);
   const [isNoteModalVisible, setIsNoteModalVisible] = useState(false);
+
+  const handleSearchChange = (text: string) => {
+  // Sanitize the search query
+  const sanitizedText = sanitizeHtml(text, {
+    allowedTags: [],  // No HTML tags allowed
+    allowedAttributes: {},  // No attributes allowed
+  });
+  setSearch(sanitizedText); // Update the search state with sanitized text
+};
 
   // For per-folder menu in grid
   const [menuFolderIdx, setMenuFolderIdx] = useState<number | null>(null);
@@ -251,7 +261,7 @@ const Folders = () => {
             placeholder="Search Folders"
             placeholderTextColor="#aaa"
             value={search}
-            onChangeText={setSearch}
+            onChangeText={handleSearchChange}  // Use the sanitized function
           />
         </View>
 

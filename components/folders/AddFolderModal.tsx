@@ -12,6 +12,15 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
+import sanitizeHtml from 'sanitize-html'; // Import sanitize-html
+
+// Sanitize input function to remove HTML
+const sanitizeInput = (input: string) => {
+  return sanitizeHtml(input, {
+    allowedTags: [],  // No HTML tags allowed
+    allowedAttributes: {},  // No attributes allowed
+  });
+};
 
 const AddFolderModal = ({
   visible,
@@ -20,9 +29,7 @@ const AddFolderModal = ({
   folder,
 }: AddFolderModalProps) => {
   const [title, setTitle] = useState(folder ? folder.title : "");
-  const [description, setDescription] = useState(
-    folder ? folder.description : ""
-  );
+  const [description, setDescription] = useState(folder ? folder.description : "");
   const [error, setError] = useState("");
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [showModal, setShowModal] = useState(visible);
@@ -60,7 +67,12 @@ const AddFolderModal = ({
       return;
     }
     setError("");
-    onAddFolder({ title: title.trim(), description: description.trim() });
+
+    // Sanitize the inputs before passing to the parent
+    const sanitizedTitle = sanitizeInput(title.trim());
+    const sanitizedDescription = sanitizeInput(description.trim());
+
+    onAddFolder({ title: sanitizedTitle, description: sanitizedDescription });
     setTitle("");
     setDescription("");
     handleClose();
