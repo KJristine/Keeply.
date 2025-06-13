@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// Using CryptoJS for encryption 
 import { Calendar } from "react-native-calendars";
 import sanitizeHtml from 'sanitize-html';
 import { auth } from '../../config/firebase'; // Updated to match your Firebase config location
@@ -254,7 +253,7 @@ export default function AddScheduleModal({
 }
 
 // Export encryption utilities for use in other components
-export { decryptData, encryptData };
+export { decryptData, encryptData, getUserEncryptionKey };
 
 const styles = StyleSheet.create({
   modalBackdrop: {

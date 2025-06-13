@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -9,6 +9,9 @@ import {
   View,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
+
+// Import the decryption function from your AddExpenseForm
+import { decryptData } from './AddExpenseForm'; // Adjust the path as needed
 
 const { width, height } = Dimensions.get("window");
 
@@ -24,9 +27,14 @@ interface Expense {
   id: string;
   amount: number;
   category: string;
-  description: string;
+  description: string; // This will be encrypted when fetched from database
   date: Date;
   type: "expense" | "income";
+}
+
+interface DecryptedExpense extends Omit<Expense, 'description'> {
+  description: string; // This will be the decrypted description
+  decryptionError?: boolean; // Flag to handle decryption errors
 }
 
 interface ExpenseListProps {
@@ -48,10 +56,87 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   onEditExpense,
   onDeleteExpense,
 }) => {
-  const displayedExpenses = limit ? expenses.slice(0, limit) : expenses;
+  const [decryptedExpenses, setDecryptedExpenses] = useState<DecryptedExpense[]>([]);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+
+  // Function to check if data appears to be encrypted
+  const isEncryptedFormat = (data: string): boolean => {
+    if (!data || typeof data !== 'string') return false;
+    
+    // Check if it contains the IV:encrypted format
+    const parts = data.split(':');
+    if (parts.length !== 2) return false;
+    
+    // Check if IV part is 16 characters (as per your IV_LENGTH)
+    const [iv, encrypted] = parts;
+    return iv.length === 16 && encrypted.length > 0;
+  };
+
+  // Function to decrypt all expenses
+  const decryptExpenses = async (expensesToDecrypt: Expense[]) => {
+    setIsDecrypting(true);
+    
+    const decrypted = await Promise.all(
+      expensesToDecrypt.map(async (expense) => {
+        try {
+          // Check if the description appears to be encrypted
+          if (isEncryptedFormat(expense.description)) {
+            // Try to decrypt the description
+            const decryptedDescription = await decryptData(expense.description);
+            
+            return {
+              ...expense,
+              description: decryptedDescription,
+              decryptionError: false,
+            };
+          } else {
+            // Data is likely plain text (legacy data or unencrypted)
+            return {
+              ...expense,
+              description: expense.description,
+              decryptionError: false,
+            };
+          }
+        } catch (error) {
+          console.warn(`Failed to decrypt description for expense ${expense.id}:`, error);
+          
+          // If decryption fails, try to determine if it was supposed to be encrypted
+          if (isEncryptedFormat(expense.description)) {
+            // This was supposed to be encrypted but failed to decrypt
+            return {
+              ...expense,
+              description: '[Decryption Failed]',
+              decryptionError: true,
+            };
+          } else {
+            // This is likely plain text data, so use it as-is
+            return {
+              ...expense,
+              description: expense.description || '[No Description]',
+              decryptionError: false,
+            };
+          }
+        }
+      })
+    );
+    
+    setDecryptedExpenses(decrypted);
+    setIsDecrypting(false);
+  };
+
+  // Decrypt expenses when the expenses prop changes
+  useEffect(() => {
+    if (expenses.length > 0) {
+      decryptExpenses(expenses);
+    } else {
+      setDecryptedExpenses([]);
+    }
+  }, [expenses]);
+
+  const displayedExpenses = limit ? decryptedExpenses.slice(0, limit) : decryptedExpenses;
 
   const renderRightActions = (
-    expense: Expense,
+    expense: DecryptedExpense,
     progress: Animated.AnimatedAddition<number>,
     dragX: Animated.AnimatedAddition<number>
   ) => {
@@ -82,7 +167,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         >
           <TouchableOpacity
             style={styles.actionButtonInner}
-            onPress={() => onEditExpense?.(expense)}
+            onPress={() => onEditExpense?.(expense as Expense)}
           >
             <Ionicons name="pencil" size={20} color="#fff" />
             <Text style={styles.actionButtonText}>Edit</Text>
@@ -108,7 +193,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     );
   };
 
-  const renderExpenseItem = (expense: Expense) => {
+  const renderExpenseItem = (expense: DecryptedExpense) => {
     const ExpenseContent = () => (
       <View style={styles.expenseItem}>
         <View style={styles.expenseLeft}>
@@ -132,7 +217,24 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             />
           </View>
           <View style={styles.expenseDetails}>
-            <Text style={styles.expenseDescription}>{expense.description}</Text>
+            <View style={styles.descriptionContainer}>
+              <Text 
+                style={[
+                  styles.expenseDescription,
+                  expense.decryptionError && styles.encryptedText
+                ]}
+              >
+                {expense.description}
+              </Text>
+              {expense.decryptionError && (
+                <Ionicons 
+                  name="warning" 
+                  size={12} 
+                  color="#FF6B6B" 
+                  style={styles.lockIcon}
+                />
+              )}
+            </View>
             <Text style={styles.expenseCategory}>{expense.category}</Text>
             {showDate && (
               <Text style={styles.expenseDate}>
@@ -171,6 +273,19 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
     return <ExpenseContent key={expense.id} />;
   };
+
+  // Show loading state while decrypting
+  if (isDecrypting && expenses.length > 0) {
+    return (
+      <View style={styles.recentExpenses}>
+        {title && <Text style={styles.cardTitle}>{title}</Text>}
+        <View style={styles.loadingState}>
+          <Ionicons name="lock-open-outline" size={48} color="#ccc" />
+          <Text style={styles.loadingStateText}>Decrypting data...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.recentExpenses}>
@@ -243,11 +358,23 @@ const styles = StyleSheet.create({
   expenseDetails: {
     flex: 1,
   },
+  descriptionContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
   expenseDescription: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 2,
+    flex: 1,
+  },
+  encryptedText: {
+    color: "#FF6B6B",
+    fontStyle: "italic",
+  },
+  lockIcon: {
+    marginLeft: 4,
   },
   expenseCategory: {
     fontSize: 12,
@@ -314,5 +441,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     maxWidth: width * 0.8,
     lineHeight: 20,
+  },
+  loadingState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: height * 0.08,
+  },
+  loadingStateText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+    marginTop: 12,
+    textAlign: "center",
   },
 });

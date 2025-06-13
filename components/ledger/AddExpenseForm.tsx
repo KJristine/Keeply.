@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import CryptoJS from 'crypto-js';
 import React from "react";
 import {
   ActivityIndicator,
@@ -13,8 +14,57 @@ import {
   View,
 } from "react-native";
 import sanitizeHtml from 'sanitize-html';
-
+import { getUserEncryptionKey } from '../schedules/AddScheduleModal';
 const { width, height } = Dimensions.get("window");
+
+// Encryption utilities
+const IV_LENGTH = 16;
+
+// Generate a random IV for each encryption
+const generateIV = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < IV_LENGTH; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+// Encrypt sensitive data using the user's unique key
+const encryptData = async (data: string): Promise<string> => {
+  try {
+    const userKey = await getUserEncryptionKey();
+    const iv = generateIV();
+    
+    // Use CryptoJS for encryption instead of react-native-aes-crypto
+    const encrypted = CryptoJS.AES.encrypt(data, userKey + iv).toString();
+
+    // Prepend IV to encrypted data (separated by :)
+    return `${iv}:${encrypted}`;
+  } catch (error) {
+    console.error('Encryption error:', error);
+    throw error;
+  }
+};
+
+// Decrypt sensitive data using the user's unique key
+const decryptData = async (encryptedData: string): Promise<string> => {
+  try {
+    const userKey = await getUserEncryptionKey();
+    const [iv, encrypted] = encryptedData.split(':');
+    if (!iv || !encrypted) {
+      throw new Error('Invalid encrypted data format');
+    }
+
+    // Use CryptoJS for decryption
+    const bytes = CryptoJS.AES.decrypt(encrypted, userKey + iv);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw error;
+  }
+};
 
 // Function to sanitize input text
 const sanitizeInput = (text: string) => {
@@ -46,7 +96,7 @@ interface AddExpenseFormProps {
   setExpenseDate: (date: Date) => void;
   showDatePicker: boolean;
   setShowDatePicker: (show: boolean) => void;
-  onAddExpense: () => void;
+  onAddExpense: (encryptedData?: any) => void;
   onOpenCategoryModal: () => void;
   loading: boolean;
   isEditing?: boolean;
@@ -79,6 +129,34 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
       setExpenseDate(selectedDate);
     }
   };
+
+  // Enhanced submit handler with selective encryption (only description and type)
+const handleEncryptedSubmit = async () => {
+  try {
+    // Only encrypt description and expenseType
+    const encryptedDescription = await encryptData(description.trim());
+    
+    // Convert amount to number and ensure it's valid
+    const numericAmount = parseFloat(amount) || 0;
+    
+    // Create object with selectively encrypted values
+    const encryptedData = {
+      expenseType,
+      amount: numericAmount, // Convert to number and ensure it's not NaN
+      selectedCategory, // Not encrypted - kept as plain object
+      description: encryptedDescription, // Encrypted
+      date: expenseDate // Not encrypted - kept as Date object
+    };
+    
+    // Pass the data with selective encryption to parent component
+    onAddExpense(encryptedData);
+    
+  } catch (error) {
+    console.error('Failed to encrypt expense data:', error);
+    // Handle encryption error
+    onAddExpense(); // Fall back to original behavior
+  }
+};
 
   return (
     <View style={styles.container}>
@@ -243,7 +321,7 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: expenseType === "expense" ? "#F76A86" : "#4CAF50", opacity: loading ? 0.8 : 1 }]}
-          onPress={onAddExpense}
+          onPress={handleEncryptedSubmit}
           disabled={loading}
         >
           {loading ? (
@@ -266,6 +344,8 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
 };
 
 export default AddExpenseForm;
+
+export { decryptData, encryptData };
 
 const styles = StyleSheet.create({
   container: {

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import CryptoJS from 'crypto-js'; // You'll need: npm install crypto-js
 import React from "react";
 import {
   Dimensions,
@@ -12,8 +13,58 @@ import {
   View,
 } from "react-native";
 import sanitizeHtml from 'sanitize-html';
+import { getUserEncryptionKey } from '../schedules/AddScheduleModal';
 
 const { width, height } = Dimensions.get("window");
+
+// Encryption utilities
+const IV_LENGTH = 16;
+
+// Generate a random IV for each encryption
+const generateIV = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < IV_LENGTH; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+// Encrypt sensitive data using the user's unique key
+const encryptData = async (data: string): Promise<string> => {
+  try {
+    const userKey = await getUserEncryptionKey();
+    const iv = generateIV();
+    
+    // Use CryptoJS for encryption instead of react-native-aes-crypto
+    const encrypted = CryptoJS.AES.encrypt(data, userKey + iv).toString();
+
+    // Prepend IV to encrypted data (separated by :)
+    return `${iv}:${encrypted}`;
+  } catch (error) {
+    console.error('Encryption error:', error);
+    throw error;
+  }
+};
+
+// Decrypt sensitive data using the user's unique key
+const decryptData = async (encryptedData: string): Promise<string> => {
+  try {
+    const userKey = await getUserEncryptionKey();
+    const [iv, encrypted] = encryptedData.split(':');
+    if (!iv || !encrypted) {
+      throw new Error('Invalid encrypted data format');
+    }
+
+    // Use CryptoJS for decryption
+    const bytes = CryptoJS.AES.decrypt(encrypted, userKey + iv);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw error;
+  }
+};
 
 // Function to sanitize input text
 const sanitizeInput = (text: string) => {
@@ -22,7 +73,6 @@ const sanitizeInput = (text: string) => {
     allowedAttributes: {}, // No attributes allowed
   });
 };
-
 
 interface AddDebtModalProps {
   visible: boolean;
@@ -35,7 +85,7 @@ interface AddDebtModalProps {
   setDescription: (description: string) => void;
   debtType: "owed_to_me" | "i_owe";
   setDebtType: (type: "owed_to_me" | "i_owe") => void;
-  onAddDebt: () => void;
+  onAddDebt: (encryptedData?: any) => void;
 }
 
 export const AddDebtModal: React.FC<AddDebtModalProps> = ({
@@ -51,6 +101,44 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
   setDebtType,
   onAddDebt,
 }) => {
+  
+  // Sanitize personName before setting it to state
+  const handlePersonNameChange = (text: string) => {
+    const sanitizedText = sanitizeInput(text);
+    setPersonName(sanitizedText);
+  };
+
+  // Sanitize description before setting it to state
+  const handleDescriptionChange = (text: string) => {
+    const sanitizedText = sanitizeInput(text);
+    setDescription(sanitizedText);
+  };
+
+  // Enhanced submit handler with encryption
+  const handleEncryptedSubmit = async () => {
+    try {
+      // Encrypt the sensitive data (personName and description)
+      const encryptedPersonName = await encryptData(personName.trim());
+      const encryptedDescription = await encryptData(description.trim());
+      
+      // Create a temporary object with encrypted values
+      const encryptedData = {
+        personName: encryptedPersonName,
+        amount,
+        description: encryptedDescription,
+        debtType
+      };
+      
+      // Pass the encrypted data to parent component
+      onAddDebt(encryptedData);
+      
+    } catch (error) {
+      console.error('Failed to encrypt debt data:', error);
+      // Handle encryption error - fall back to original behavior
+      onAddDebt();
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
@@ -118,36 +206,50 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
             </View>
           </View>
 
-          {/* For personName input */}
-          <TextInput
-            style={styles.input}
-            value={personName}
-            onChangeText={(text) => setPersonName(sanitizeInput(text))}  // Apply sanitization
-            placeholder="Enter person's name"
-            placeholderTextColor="#999"
-          />
+          {/* Person Name Input - with encryption */}
+          <View style={styles.inputSection}>
+            <Text style={styles.sectionTitle}>Person's Name</Text>
+            <TextInput
+              style={styles.input}
+              value={personName}
+              onChangeText={handlePersonNameChange}
+              placeholder="Enter person's name"
+              placeholderTextColor="#999"
+              secureTextEntry={false} // Set to true if you want to hide input
+            />
+          </View>
 
-          {/* For amount input */}
-          <TextInput
-            style={styles.amountInput}
-            value={amount}
-            onChangeText={(text) => setAmount(sanitizeInput(text))}  // Apply sanitization
-            placeholder="0.00"
-            placeholderTextColor="#999"
-            keyboardType="decimal-pad"
-          />
+          {/* Amount Input - no encryption needed */}
+          <View style={styles.inputSection}>
+            <Text style={styles.sectionTitle}>Amount</Text>
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>₱</Text>
+              <TextInput
+                style={styles.amountInput}
+                value={amount}
+                onChangeText={(text) => setAmount(sanitizeInput(text))}
+                placeholder="0.00"
+                placeholderTextColor="#999"
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
 
-          {/* For description input */}
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            value={description}
-            onChangeText={(text) => setDescription(sanitizeInput(text))}  // Apply sanitization
-            placeholder="What is this debt for?"
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
+          {/* Description Input - with encryption */}
+          <View style={styles.inputSection}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <TextInput
+              style={[styles.input, styles.descriptionInput]}
+              value={description}
+              onChangeText={handleDescriptionChange}
+              placeholder="What is this debt for?"
+              placeholderTextColor="#999"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              secureTextEntry={false} // Set to true if you want to hide input
+            />
+          </View>
 
           {/* Preview */}
           <View style={styles.previewSection}>
@@ -179,7 +281,7 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
                 </View>
               </View>
               <Text style={styles.previewAmount}>
-                {debtType === "owed_to_me" ? "+" : "-"}₱{amount || "0.00"}  {/* Wrapped in <Text> */}
+                {debtType === "owed_to_me" ? "+" : "-"}₱{amount || "0.00"}
               </Text>
             </View>
           </View>
@@ -197,7 +299,7 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
               (!personName || !amount || !description) &&
               styles.addButtonDisabled,
             ]}
-            onPress={onAddDebt}
+            onPress={handleEncryptedSubmit} // Use encrypted submit handler
             disabled={!personName || !amount || !description}
           >
             <Ionicons name="add-circle" size={20} color="white" />
@@ -208,6 +310,9 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
     </Modal>
   );
 };
+
+// Export encryption utilities for use in other components
+export { decryptData, encryptData };
 
 export default AddDebtModal;
 

@@ -364,35 +364,75 @@ const Ledger = () => {
     }
   };
 
-  // Add Expense to Firebase
-  const handleAddExpense = async () => {
-    if (!user || !amount || !description || !selectedCategory) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
+const handleAddExpense = async (encryptedData?: any) => {
+  if (!user) {
+    Alert.alert("Error", "User not authenticated");
+    return;
+  }
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
+
+    if (encryptedData) {
+      console.log('Using encrypted data for storage');
+      
+      if (!encryptedData.amount || !encryptedData.description || !encryptedData.selectedCategory) {
+        Alert.alert("Error", "Please fill in all fields");
+        return;
+      }
+
+      await addDoc(collection(db, "expenses"), {
+        amount: encryptedData.amount,
+        category: encryptedData.selectedCategory.name,
+        description: encryptedData.description,
+        date: encryptedData.date,
+        type: encryptedData.expenseType,
+        userId: user.uid,
+        createdAt: new Date().toISOString(),
+        isEncrypted: true
+      });
+
+      console.log('Encrypted transaction saved successfully');
+      
+    } else {
+      console.log('Using fallback unencrypted data');
+      
+      if (!amount || !description || !selectedCategory) {
+        Alert.alert("Error", "Please fill in all fields");
+        return;
+      }
+
       await addDoc(collection(db, "expenses"), {
         amount: parseFloat(amount),
-        category: selectedCategory.name,
+        category: selectedCategory.name,  
         description,
-        date: expenseDate,
+        date: expenseDate, // This will be stored as Timestamp
         type: expenseType,
         userId: user.uid,
+        createdAt: new Date().toISOString(),
+        isEncrypted: false
       });
-      setAmount("");
-      setDescription("");
-      setExpenseDate(new Date());
-      setActiveTab("overview");
-      Alert.alert("Success", "Transaction added successfully!");
-    } catch (error) {
-      console.error("Error adding expense:", error);
-      Alert.alert("Error", "Failed to add transaction");
-    } finally {
-      setLoading(false);
+
+      console.log('Unencrypted transaction saved (fallback)');
     }
-  };
+
+    // Reset form and navigate back to overview
+    setAmount("");
+    setDescription("");
+    setExpenseDate(new Date());
+    setSelectedCategory(null);
+    setActiveTab("overview");
+    
+    Alert.alert("Success", "Transaction added successfully!");
+    
+  } catch (error) {
+    console.error("Error adding expense:", error);
+    Alert.alert("Error", "Failed to add transaction. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Delete Expense from Firebase
   const handleDeleteExpense = async (expenseId: string) => {
@@ -538,33 +578,74 @@ const Ledger = () => {
   };
 
   // Add Debt to Firebase
-  const handleAddDebt = async () => {
-    if (!user || !newDebtPersonName || !newDebtAmount || !newDebtDescription) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
+  const handleAddDebt = async (encryptedData?: any) => {
+  if (!user) {
+    Alert.alert("Error", "User not authenticated");
+    return;
+  }
 
-    try {
+  try {
+    setLoading(true);
+
+    if (encryptedData) {
+      console.log('Using encrypted data for storage');
+      
+      if (!encryptedData.amount || !encryptedData.description) {
+        Alert.alert("Error", "Please fill in all fields");
+        return;
+      }
+
       await addDoc(collection(db, "debts"), {
+        personName: encryptedData.personName,
+        amount: encryptedData.amount,
+        description: encryptedData.description,
+        type: encryptedData.debtType,
+        date: new Date(),
+        status: "active",
+        userId: user.uid,
+        createdAt: new Date().toISOString(),
+        isEncrypted: true
+      });
+
+      console.log('Encrypted transaction saved successfully');
+      
+    } else {
+      console.log('Using fallback unencrypted data');
+      
+      if (!user || !newDebtPersonName || !newDebtAmount || !newDebtDescription) {
+        Alert.alert("Error", "Please fill in all fields");
+        return;
+      }
+
+      await addDoc(collection(db, "expenses"), {
         personName: newDebtPersonName,
-        amount: parseFloat(newDebtAmount),
+        amount: parseFloat(newDebtAmount), 
         description: newDebtDescription,
         type: newDebtType,
         date: new Date(),
         status: "active",
         userId: user.uid,
+        createdAt: new Date().toISOString(),
+        isEncrypted: false
       });
+
+      console.log('Unencrypted transaction saved (fallback)');
+    }
+
+    // Reset form and navigate back to overview
       setNewDebtPersonName("");
       setNewDebtAmount("");
       setNewDebtDescription("");
       setNewDebtType("owed_to_me");
       setDebtModalVisible(false);
-      Alert.alert("Success", "Debt record added successfully!");
-    } catch (error) {
-      console.error("Error adding debt:", error);
-      Alert.alert("Error", "Failed to add debt record");
-    }
-  };
+      Alert.alert("Success", "Debt record added successfully!"); 
+  } catch (error) {
+    console.error("Error adding expense:", error);
+    Alert.alert("Error", "Failed to add transaction. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Settle Debt in Firebase - FIXED WITH settledDate
   const handleSettleDebt = async (debtId: string) => {

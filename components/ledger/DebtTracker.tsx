@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { decryptData } from './AddDebtModal';
 
 const { width, height } = Dimensions.get("window");
 
@@ -19,7 +20,11 @@ interface Debt {
   type: "owed_to_me" | "i_owe";
   date: Date;
   status: "active" | "settled";
-  settledDate?: Date; // Add optional settled date
+  settledDate?: Date;
+}
+
+interface DecryptedDebt extends Debt {
+  decryptionError: boolean;
 }
 
 interface DebtTrackerProps {
@@ -35,13 +40,94 @@ export const DebtTracker: React.FC<DebtTrackerProps> = ({
   onSettleDebt,
   showHistory = false,
 }) => {
+  const [decryptedDebts, setDecryptedDebts] = useState<DecryptedDebt[]>([]);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+
+  // Function to check if data appears to be encrypted
+  const isEncryptedFormat = (data: string): boolean => {
+    if (!data || typeof data !== 'string') return false;
+    
+    // Check if it contains the IV:encrypted format
+    const parts = data.split(':');
+    if (parts.length !== 2) return false;
+    
+    // Check if IV part is 16 characters (as per your IV_LENGTH)
+    const [iv, encrypted] = parts;
+    return iv.length === 16 && encrypted.length > 0;
+  };
+
+  // Function to decrypt all debts
+  const decryptDebts = async (debtsToDecrypt: Debt[]) => {
+    setIsDecrypting(true);
+    
+    const decrypted = await Promise.all(
+      debtsToDecrypt.map(async (debt) => {
+        try {
+          let decryptedPersonName = debt.personName;
+          let decryptedDescription = debt.description;
+          let hasDecryptionError = false;
+
+          // Check and decrypt personName if encrypted
+          if (isEncryptedFormat(debt.personName)) {
+            try {
+              decryptedPersonName = await decryptData(debt.personName);
+            } catch (error) {
+              console.warn(`Failed to decrypt personName for debt ${debt.id}:`, error);
+              decryptedPersonName = '[Decryption Failed]';
+              hasDecryptionError = true;
+            }
+          }
+
+          // Check and decrypt description if encrypted
+          if (isEncryptedFormat(debt.description)) {
+            try {
+              decryptedDescription = await decryptData(debt.description);
+            } catch (error) {
+              console.warn(`Failed to decrypt description for debt ${debt.id}:`, error);
+              decryptedDescription = '[Decryption Failed]';
+              hasDecryptionError = true;
+            }
+          }
+
+          return {
+            ...debt,
+            personName: decryptedPersonName,
+            description: decryptedDescription || '[No Description]',
+            decryptionError: hasDecryptionError,
+          };
+        } catch (error) {
+          console.warn(`Failed to decrypt debt ${debt.id}:`, error);
+          
+          return {
+            ...debt,
+            personName: isEncryptedFormat(debt.personName) ? '[Decryption Failed]' : debt.personName,
+            description: isEncryptedFormat(debt.description) ? '[Decryption Failed]' : (debt.description || '[No Description]'),
+            decryptionError: true,
+          };
+        }
+      })
+    );
+    
+    setDecryptedDebts(decrypted);
+    setIsDecrypting(false);
+  };
+
+  // Decrypt debts when the debts prop changes
+  useEffect(() => {
+    if (debts.length > 0) {
+      decryptDebts(debts);
+    } else {
+      setDecryptedDebts([]);
+    }
+  }, [debts]);
+
   // Filter debts based on showHistory prop - NO DUPLICATES
   const filteredDebts = showHistory
-    ? debts.filter((debt) => debt.status === "settled") // Only settled debts in history
-    : debts.filter((debt) => debt.status === "active"); // Only active debts in active view
+    ? decryptedDebts.filter((debt) => debt.status === "settled") // Only settled debts in history
+    : decryptedDebts.filter((debt) => debt.status === "active"); // Only active debts in active view
 
-  // Calculate totals for ONLY active debts
-  const activeDebts = debts.filter((debt) => debt.status === "active");
+  // Calculate totals for ONLY active debts (using decrypted data)
+  const activeDebts = decryptedDebts.filter((debt) => debt.status === "active");
   const totalOwedToMe = activeDebts
     .filter((debt) => debt.type === "owed_to_me")
     .reduce((sum, debt) => sum + debt.amount, 0);
@@ -50,7 +136,7 @@ export const DebtTracker: React.FC<DebtTrackerProps> = ({
     .filter((debt) => debt.type === "i_owe")
     .reduce((sum, debt) => sum + debt.amount, 0);
 
-  const handleSettleDebtWithConfirmation = (debt: Debt) => {
+  const handleSettleDebtWithConfirmation = (debt: DecryptedDebt) => {
     Alert.alert(
       "Settle Debt",
       `Mark debt with ${debt.personName} as settled?\n\nThis will move it to your debt history.`,
@@ -68,7 +154,7 @@ export const DebtTracker: React.FC<DebtTrackerProps> = ({
     );
   };
 
-  const renderDebtItem = (item: Debt) => (
+  const renderDebtItem = (item: DecryptedDebt) => (
     <View key={item.id} style={styles.debtItem}>
       <View style={styles.debtLeft}>
         <View
@@ -100,14 +186,28 @@ export const DebtTracker: React.FC<DebtTrackerProps> = ({
         </View>
         <View style={styles.debtDetails}>
           <View style={styles.debtHeader}>
-            <Text style={styles.debtPersonName}>{item.personName}</Text>
+            <Text 
+              style={[
+                styles.debtPersonName,
+                item.decryptionError && { color: '#F44336', fontStyle: 'italic' }
+              ]}
+            >
+              {item.personName}
+            </Text>
             {item.status === "settled" && (
               <View style={styles.settledBadge}>
                 <Text style={styles.settledBadgeText}>Settled</Text>
               </View>
             )}
           </View>
-          <Text style={styles.debtDescription}>{item.description}</Text>
+          <Text 
+            style={[
+              styles.debtDescription,
+              item.decryptionError && { color: '#F44336', fontStyle: 'italic' }
+            ]}
+          >
+            {item.description}
+          </Text>
           <Text style={styles.debtDate}>
             {item.status === "settled"
               ? `Settled: ${(
@@ -163,6 +263,16 @@ export const DebtTracker: React.FC<DebtTrackerProps> = ({
       </Text>
     </View>
   );
+
+  // Show loading state while decrypting
+  if (isDecrypting) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -408,4 +518,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
   },
+    loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  }
 });
