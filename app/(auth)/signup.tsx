@@ -1,6 +1,10 @@
 import Checkbox from "expo-checkbox";
 import { useRouter } from "expo-router";
-import { createUserWithEmailAndPassword, getAuth, updateProfile } from "firebase/auth"; // Import updateProfile
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  updateProfile,
+} from "firebase/auth"; // Import updateProfile
 import LottieView from "lottie-react-native";
 import React, { useState } from "react";
 import {
@@ -15,7 +19,7 @@ import {
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import sanitizeHtml from 'sanitize-html'; // Import sanitize-html
+import sanitizeHtml from "sanitize-html"; // Import sanitize-html
 
 const { width, height } = Dimensions.get("window");
 
@@ -28,71 +32,76 @@ const Signup = () => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false); // State for password visibility
   const router = useRouter();
 
-const handleSignup = async () => {
-  if (!username.trim() || !email.trim() || !password.trim()) {
-    Alert.alert("Sign Up", "Please fill in all fields.");
-    return;
-  }
+  const handleSignup = async () => {
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      Alert.alert("Sign Up", "Please fill in all fields.");
+      return;
+    }
 
-  if (!isChecked) {
-    Alert.alert(
-      "Sign Up",
-      "You must agree to the Terms of Service and Privacy Policy."
-    );
-    return;
-  }
+    if (!isChecked) {
+      Alert.alert(
+        "Sign Up",
+        "You must agree to the Terms of Service and Privacy Policy."
+      );
+      return;
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    Alert.alert("Sign Up", "Please enter a valid email address.");
-    return;
-  }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Sign Up", "Please enter a valid email address.");
+      return;
+    }
 
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{12,}$/;
-  if (!passwordRegex.test(password)) {
-    Alert.alert(
-      "Sign Up", 
-      "Password must be at least 12 characters long and contain:\n\n- Uppercase letter\n- Lowercase letter\n- Number\n- Special character"
-    );
-    return;
-  }
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{12,}$/;
+    if (!passwordRegex.test(password)) {
+      Alert.alert(
+        "Sign Up",
+        "Password must be at least 12 characters long and contain:\n\n- Uppercase letter\n- Lowercase letter\n- Number\n- Special character"
+      );
+      return;
+    }
 
-  // Sanitize username and email inputs before submitting
-  const sanitizedUsername = sanitizeHtml(username, {
-    allowedTags: [],  // Allow no tags
-    allowedAttributes: {}  // Allow no attributes
-  });
-
-  const sanitizedEmail = sanitizeHtml(email, {
-    allowedTags: [],
-    allowedAttributes: {}
-  });
-
-  setIsLoading(true);
-
-  try {
-    const auth = getAuth();
-    const userCredential = await createUserWithEmailAndPassword(auth, sanitizedEmail, password);
-    
-    // Access the current user after sign-up
-    const user = userCredential.user;
-
-    // Update the user's profile with the sanitized username
-    await updateProfile(user, {
-      displayName: sanitizedUsername,
+    // Sanitize username and email inputs before submitting
+    const sanitizedUsername = sanitizeHtml(username, {
+      allowedTags: [], // Allow no tags
+      allowedAttributes: {}, // Allow no attributes
     });
 
-    // After successful sign-up, navigate to the home page
-    router.replace("/(tabs)/home");
+    const sanitizedEmail = sanitizeHtml(email, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
 
-  } catch (error: any) {
-    console.error("Signup error:", error);
-    const errorMessage = error?.message || "An unexpected error occurred. Please try again.";
-    Alert.alert("Registration Error", errorMessage);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsLoading(true);
+
+    try {
+      const auth = getAuth();
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        sanitizedEmail,
+        password
+      );
+
+      // Access the current user after sign-up
+      const user = userCredential.user;
+
+      // Update the user's profile with the sanitized username
+      await updateProfile(user, {
+        displayName: sanitizedUsername,
+      });
+
+      // After successful sign-up, navigate to the home page
+      router.replace("/(tabs)/home");
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      const errorMessage =
+        error?.message || "An unexpected error occurred. Please try again.";
+      Alert.alert("Registration Error", errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <KeyboardAwareScrollView
@@ -139,13 +148,13 @@ const handleSignup = async () => {
           style={styles.input}
           placeholder="Password"
           placeholderTextColor="#aaa"
-          secureTextEntry={!isPasswordVisible}  // Toggles visibility based on state
+          secureTextEntry={!isPasswordVisible} // Toggles visibility based on state
           value={password}
           onChangeText={setPassword}
           editable={!isLoading}
         />
         <TouchableOpacity
-          onPress={() => setIsPasswordVisible(!isPasswordVisible)}  // Toggle password visibility
+          onPress={() => setIsPasswordVisible(!isPasswordVisible)} // Toggle password visibility
           style={styles.eyeIcon}
         >
           <Text style={styles.eyeText}>
@@ -307,7 +316,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     position: "absolute",
     right: width * 0.04,
-    top: height * 0.018,
+    top: height * 0.022,
   },
   eyeText: {
     color: "#aaa",
