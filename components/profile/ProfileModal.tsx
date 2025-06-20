@@ -432,20 +432,6 @@ export default function ProfileModal() {
           <Text style={styles.sectionTitle}>Support</Text>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={openAccountSettings}
-          >
-            <View style={styles.menuItemLeft}>
-              <Ionicons
-                name="settings-outline"
-                size={wp(4.5)}
-                color="#0891B2"
-              />
-              <Text style={styles.menuItemText}>Account Settings</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={wp(4)} color="#9CA3AF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
             onPress={() =>
               Alert.alert("Report", "Thank you for your feedback!")
             }
@@ -456,6 +442,7 @@ export default function ProfileModal() {
             </View>
             <Ionicons name="chevron-forward" size={wp(4)} color="#9CA3AF" />
           </TouchableOpacity>
+          
           <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
             <View style={styles.menuItemLeft}>
               <Ionicons name="log-out-outline" size={wp(4.5)} color="#EF4444" />
